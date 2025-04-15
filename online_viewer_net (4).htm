@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>English Interview Bot</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      padding: 2rem;
+      text-align: center;
+    }
+    h1 {
+      color: #2c3e50;
+    }
+    button {
+      font-size: 1.2rem;
+      padding: 1rem 2rem;
+      margin-top: 2rem;
+      cursor: pointer;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 10px;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    #bot-image {
+      width: 150px;
+      margin: 20px auto;
+    }
+    #transcript, #correction, #explanation {
+      margin-top: 1.5rem;
+      font-size: 1.1rem;
+      color: #333;
+    }
+    #correction {
+      color: red;
+    }
+    #explanation {
+      color: green;
+    }
+  </style>
+</head>
+<body>
+  <h1>🤖 English Interview Bot</h1>
+  <img id="bot-image" src="A_2D_digital_illustration_depicts_an_interactive_E.png" alt="Bot">
+  <p>Click the button to start speaking. The bot will ask a question, listen, correct you, and help you improve.</p>
+  <button onclick="startInterview()">Start Interview</button>
+  <div id="transcript"></div>
+  <div id="correction"></div>
+  <div id="explanation"></div>
+
+  <script>
+    const questions = [
+      "Tell me about yourself.",
+      "What is your experience as an appointment setter?",
+      "Why do you want to work in the U.S.?"
+    ];
+
+    let questionIndex = 0;
+
+    function speak(text, rate = 0.9) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      utterance.rate = rate;
+      speechSynthesis.speak(utterance);
+    }
+
+    async function grammarCheck(text) {
+      const res = await fetch("https://api.languagetool.org/v2/check", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: `text=${encodeURIComponent(text)}&language=en-US`
+      });
+      return await res.json();
+    }
+
+    function startInterview() {
+      const question = questions[questionIndex];
+      speak(question);
+      listen(question);
+    }
+
+    function listen(question) {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.start();
+
+      recognition.onresult = async (event) => {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById("transcript").innerText = "You said: " + transcript;
+
+        const result = await grammarCheck(transcript);
+        if (result.matches.length > 0) {
+          const message = result.matches[0].message;
+          const replacement = result.matches[0].replacements[0]?.value || "(suggested change)";
+          document.getElementById("correction").innerText = "Correction: " + replacement;
+          document.getElementById("explanation").innerText = "Why: " + message;
+          speak("Correction: " + replacement);
+        } else {
+          document.getElementById("correction").innerText = "Great! No major errors detected.";
+          document.getElementById("explanation").innerText = "Your sentence is grammatically correct.";
+          speak("Good job! Let's continue.");
+        }
+
+        questionIndex++;
+        if (questionIndex < questions.length) {
+          setTimeout(() => startInterview(), 6000);
+        } else {
+          speak("That's the end of our session. Great work today!");
+        }
+      };
+
+      recognition.onerror = (event) => {
+        document.getElementById("transcript").innerText = "Error: " + event.error;
+      };
+    }
+  </script>
+</body>
+</html>
